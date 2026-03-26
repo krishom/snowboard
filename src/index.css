@@ -1,0 +1,228 @@
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #0f172a;
+  color: #f1f5f9;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+#root, .app-container {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: crosshair;
+}
+
+.ui-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2rem;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border-radius: 1rem;
+}
+
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 1.25rem;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.07));
+}
+
+.hud-panel {
+  padding: 0.75rem 1.5rem;
+}
+
+.hud-label {
+  color: #cbd5e1;
+  font-size: 0.875rem;
+  display: block;
+}
+
+.hud-value-score {
+  font-size: 1.875rem;
+  font-weight: 900;
+  color: #67e8f9;
+}
+
+.hud-value-speed {
+  font-size: 1.875rem;
+  font-weight: 900;
+  color: #34d399;
+}
+
+.hud-unit {
+  font-size: 1.125rem;
+}
+
+.hud-bottom {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 2rem;
+}
+
+.hud-distance {
+  color: #e2e8f0;
+}
+
+.hud-distance-val {
+  font-weight: bold;
+  color: white;
+}
+
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.menu-panel {
+  padding: 3rem;
+  max-width: 32rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+}
+
+.menu-title {
+  font-size: 3rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.05em;
+  background-image: linear-gradient(to bottom right, #22d3ee, #2563eb);
+  -webkit-background-clip: text;
+  color: transparent;
+  margin-bottom: 0.5rem;
+  text-align: center;
+  line-height: 1.1;
+  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.2));
+}
+
+.menu-subtitle {
+  color: #cbd5e1;
+  margin-bottom: 2.5rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-align: center;
+}
+
+.btn-start {
+  background-image: linear-gradient(to right, #06b6d4, #2563eb);
+  color: white;
+  font-weight: bold;
+  padding: 1rem 3rem;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(6, 182, 212, 0.3), 0 4px 6px -2px rgba(6, 182, 212, 0.15);
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 1.125rem;
+  transition: all 0.2s;
+}
+
+.btn-start:hover {
+  background-image: linear-gradient(to right, #22d3ee, #3b82f6);
+  transform: scale(1.05);
+}
+
+.btn-start:active {
+  transform: scale(0.95);
+}
+
+.gameover-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(127, 29, 29, 0.4);
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+.gameover-panel {
+  border-color: rgba(239, 68, 68, 0.3);
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gameover-title {
+  font-size: 3rem;
+  font-weight: 900;
+  color: #ef4444;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.1));
+}
+
+.gameover-stats {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.gameover-stat {
+  font-size: 1.25rem;
+  color: #e2e8f0;
+}
+
+.gameover-val {
+  font-weight: bold;
+  color: white;
+}
+
+.btn-retry {
+  background-color: white;
+  color: #dc2626;
+  font-weight: bold;
+  padding: 0.75rem 2.5rem;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+}
+
+.btn-retry:hover {
+  transform: scale(1.05);
+}
+
+.btn-retry:active {
+  transform: scale(0.95);
+}
