@@ -5,6 +5,76 @@ import * as THREE from 'three';
 
 import { useGameStore } from '../store/gameStore';
 
+const FINISH_Z = -1000;
+const SLOPE_ANGLE = 0.2;
+
+// ---------------------------------------------------------------------------
+// Checkerboard finish stripe
+// ---------------------------------------------------------------------------
+const FinishLine: React.FC = () => {
+  const texture = useMemo(() => {
+    const size = 512;
+    const cols = 8;
+    const rows = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = (size / cols) * rows; // keep squares square
+    const ctx = canvas.getContext('2d')!;
+    const cellW = size / cols;
+    const cellH = canvas.height / rows;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#ffffff' : '#111111';
+        ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+      }
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  }, []);
+
+  // The floor mesh is inside a RigidBody rotated by [-PI/2 - 0.2, 0, 0],
+  // so we replicate that tilt here and place the stripe just above the snow.
+  const finishY = FINISH_Z * Math.tan(SLOPE_ANGLE);
+
+  return (
+    <group position={[0, finishY, FINISH_Z]} rotation={[-Math.PI / 2 - SLOPE_ANGLE, 0, 0]}>
+      {/* Checkerboard decal — sits 0.05 units above the floor to avoid z-fighting */}
+      <mesh position={[0, 0, 0.25]} receiveShadow>
+        <planeGeometry args={[50, 8]} />
+        <meshStandardMaterial map={texture} roughness={0.9} transparent={false} />
+      </mesh>
+
+      {/* Left banner pole */}
+      <mesh position={[-25, 0, 5]} castShadow>
+        <cylinderGeometry args={[0.3, 0.3, 14, 8]} />
+        <meshStandardMaterial color="#cc0000" />
+      </mesh>
+      {/* Right banner pole */}
+      <mesh position={[25, 0, 5]} castShadow>
+        <cylinderGeometry args={[0.3, 0.3, 14, 8]} />
+        <meshStandardMaterial color="#cc0000" />
+      </mesh>
+      {/* Horizontal crossbar */}
+      <mesh position={[0, 0, 12]} castShadow>
+        <boxGeometry args={[50.6, 0.6, 0.6]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      {/* Alternating red/white segments on crossbar */}
+      {Array.from({ length: 10 }, (_, i) => (
+        <mesh key={i} position={[-22.5 + i * 5, 0, 12.35]} castShadow>
+          <boxGeometry args={[2.5, 0.65, 0.35]} />
+          <meshStandardMaterial color={i % 2 === 0 ? '#cc0000' : '#ffffff'} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Main Environment
+// ---------------------------------------------------------------------------
 export const Environment: React.FC = () => {
   const treeRefs = useRef<THREE.Group[]>([]);
   const dirLightRef = useRef<THREE.DirectionalLight>(null!);
@@ -21,25 +91,24 @@ export const Environment: React.FC = () => {
       const z = Math.random() * (maxZ - minZ) + minZ;
       // Calculate y based on the slope. 
       // slope angle is roughly Math.PI / 12 (15 degrees)
-      const slopeAngle = 0.2; // roughly
-      const y = z * Math.tan(slopeAngle);
+      const y = z * Math.tan(SLOPE_ANGLE);
 
       const scale = Math.random() * 0.5 + 0.8;
 
       arr.push(
         <group key={i} ref={(el) => { if (el) treeRefs.current[i] = el; }} position={[x, y, z]} scale={scale}>
           {/* Trunk */}
-          <mesh position={[0, 1, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.3, 2]} />
+          <mesh position={[0, 2, 0]} castShadow>
+            <cylinderGeometry args={[0.4, 0.6, 4]} />
             <meshStandardMaterial color="#4a3b32" />
           </mesh>
           {/* Leaves */}
-          <mesh position={[0, 3, 0]} castShadow>
-            <coneGeometry args={[1.5, 3, 5]} />
+          <mesh position={[0, 6, 0]} castShadow>
+            <coneGeometry args={[3.0, 6, 5]} />
             <meshStandardMaterial color="#2d4c1e" />
           </mesh>
-          <mesh position={[0, 4.5, 0]} castShadow>
-            <coneGeometry args={[1.2, 2.5, 5]} />
+          <mesh position={[0, 9, 0]} castShadow>
+            <coneGeometry args={[2.4, 5, 5]} />
             <meshStandardMaterial color="#3a5f27" />
           </mesh>
         </group>
@@ -49,15 +118,14 @@ export const Environment: React.FC = () => {
   }, []);
 
   useFrame(() => {
-    const slopeAngle = 0.2;
     // Use the exact instantaneous gameStore distance to avoid the 1-frame camera lag on respawn
     const distance = useGameStore.getState().distance;
     const playerZ = -distance;
-    const playerY = playerZ * Math.tan(slopeAngle);
+    const playerY = playerZ * Math.tan(SLOPE_ANGLE);
 
     // Move the directional light to follow the player so its shadow frustum stays centred
     if (dirLightRef.current) {
-      dirLightRef.current.position.set(20 + 0, playerY + 50, playerZ - 20);
+      dirLightRef.current.position.set(20, playerY + 60, playerZ + 50);
       dirLightRef.current.target.position.set(0, playerY, playerZ);
       dirLightRef.current.target.updateMatrixWorld();
     }
@@ -72,7 +140,7 @@ export const Environment: React.FC = () => {
         tree.position.x = getTreeX();
 
         // Update Y height to match the new Z position on the slope
-        tree.position.y = tree.position.z * Math.tan(slopeAngle);
+        tree.position.y = tree.position.z * Math.tan(SLOPE_ANGLE);
       }
     });
   });
@@ -82,7 +150,7 @@ export const Environment: React.FC = () => {
       {/* Lighting and Scene Setup */}
       <ambientLight intensity={0.6} />
       <directionalLight ref={dirLightRef} position={[20, 50, -20]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]}>
-        <orthographicCamera attach="shadow-camera" args={[-60, 60, 60, -60, 0.1, 300]} />
+        <orthographicCamera attach="shadow-camera" args={[-80, 80, 80, -80, 0.1, 600]} />
       </directionalLight>
 
       {/* The main Slope and Walls combined into one tilted RigidBody */}
@@ -122,10 +190,13 @@ export const Environment: React.FC = () => {
       <group>
         {trees}
       </group>
+
+      {/* Finish Line at 20000m */}
+      <FinishLine />
     </group>
   );
 };
+
 function getTreeX() {
   return (Math.random() * 10 + 10) * (Math.random() > 0.5 ? -1 : 1);
 }
-

@@ -6,8 +6,8 @@ export const UI: React.FC = () => {
 
   return (
     <div className="ui-layer">
-      {/* HUD - only visible while playing */}
-      {gameState === 'playing' && (
+      {/* HUD - visible while playing or finishing */}
+      {(gameState === 'playing' || gameState === 'finishing') && (
         <>
           <div className="hud-top">
             <div className="glass-panel hud-panel">
@@ -63,6 +63,33 @@ export const UI: React.FC = () => {
             >
               Try Again
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Run Complete Screen */}
+      {gameState === 'finished' && (
+        <div className="finished-overlay">
+          <div className="glass-panel finished-panel">
+            <div className="finished-flag">🏁</div>
+            <h2 className="finished-title">Nice run!</h2>
+            <p className="finished-subtitle">Time for some coffee!</p>
+            <div className="finished-stats">
+              <p className="finished-stat">Final Score: <span className="finished-val">{Math.floor(score)}</span></p>
+              <p className="finished-stat">Distance: <span className="finished-val">{Math.floor(distance).toLocaleString()}m</span></p>
+              <p className="finished-stat">Top Speed: <span className="finished-val">{Math.floor(speed * 100 / 216)} km/h</span></p>
+            </div>
+            <div className="finished-buttons">
+              <button
+                className="btn-ride-again"
+                onClick={() => {
+                  resetGame();
+                  setGameState('playing');
+                }}
+              >
+                Ride Again
+              </button>
+            </div>
           </div>
         </div>
       )}

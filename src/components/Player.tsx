@@ -5,6 +5,9 @@ import { RigidBody, RapierRigidBody } from '@react-three/rapier';
 import { useGameStore } from '../store/gameStore';
 import * as THREE from 'three';
 
+const BOARD_WIDTH = 0.55; // deck width in metres
+const FINISH_DISTANCE = 1000;
+
 export const Player: React.FC = () => {
   const bodyRef = useRef<RapierRigidBody>(null);
   const meshRef = useRef<THREE.Group>(null);
@@ -18,11 +21,22 @@ export const Player: React.FC = () => {
   const cameraPosition = useRef(new THREE.Vector3(0, 10, 15));
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
 
+  // Finish sequence tracking
+  const finishTriggered = useRef(false);
+  const finishTimer = useRef(0);
+  const finishTargetYaw = useRef(-Math.PI / 2); // determined at crossing moment
+
   useEffect(() => {
     const handleMouseMove = () => setMouseActive(true);
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
+
+  // Reset finish state when game restarts
+  useEffect(() => {
+    finishTriggered.current = false;
+    finishTimer.current = 0;
+  }, [gameState]);
 
   useFrame((state, delta) => {
     if (!bodyRef.current) return;
@@ -31,11 +45,22 @@ export const Player: React.FC = () => {
     const vel = bodyRef.current.linvel();
 
     if (gameState === 'playing') {
-      setDistance(Math.max(0, -pos.z));
+      const dist = Math.max(0, -pos.z);
+      setDistance(dist);
       const speedKmh = Math.abs(vel.z) * 3.6;
 
       if (Math.round(state.clock.getElapsedTime() * 10) % 2 === 0) {
         setSpeed(speedKmh);
+      }
+
+      // Trigger finish when player crosses the finish line
+      if (dist >= FINISH_DISTANCE && !finishTriggered.current) {
+        finishTriggered.current = true;
+        // Rotate toward whichever quarter-turn the board is already leaning into
+        const currentYaw = meshRef.current ? meshRef.current.rotation.y : 0;
+        finishTargetYaw.current = currentYaw >= 0 ? Math.PI / 2 : -Math.PI / 2;
+        setGameState('finishing'); // decelerate/rotate first — dialog comes later
+        return;
       }
 
       let bankAngle = 0;
@@ -95,6 +120,65 @@ export const Player: React.FC = () => {
       if (pos.y < floorY - 20 || Math.abs(pos.x) > 100) {
         setGameState('gameover');
       }
+
+    } else if (gameState === 'finishing') {
+      // -----------------------------------------------------------------------
+      // Finishing sequence: decelerate and rotate to a toe-side stop,
+      // then wait 1 extra second before showing the Run Complete dialog.
+      // -----------------------------------------------------------------------
+      finishTimer.current += delta;
+
+      // Gentle braking — slow enough that rotation has time to animate
+      const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+      if (speed > 0.3) {
+        // Ease-in: starts near-zero, ramps up to full strength over ~4 s
+        const t = Math.min(finishTimer.current / 4.0, 1.0);
+        const easedT = t * t; // quadratic ease-in
+        const brakeStrength = easedT * 50 * delta;
+        bodyRef.current.applyImpulse({
+          x: -vel.x * brakeStrength,
+          y: 0,
+          z: -vel.z * brakeStrength,
+        }, true);
+      } else {
+        // Fully stopped — wait 1 extra second then show dialog
+        bodyRef.current.setLinvel({ x: 0, y: vel.y, z: 0 }, true);
+        if (finishTimer.current >= 1.0) {
+          setGameState('finished');
+        }
+      }
+
+      // Smoothly rotate the mesh to the nearest quarter-turn stop
+      if (meshRef.current) {
+        meshRef.current.rotation.y = THREE.MathUtils.damp(
+          meshRef.current.rotation.y,
+          finishTargetYaw.current,
+          4,
+          delta
+        );
+        // Level out the bank
+        meshRef.current.rotation.z = THREE.MathUtils.damp(
+          meshRef.current.rotation.z,
+          0,
+          6,
+          delta
+        );
+      }
+
+      // Arms settle naturally
+      if (armsGroupRef.current) {
+        armsGroupRef.current.rotation.y = THREE.MathUtils.damp(
+          armsGroupRef.current.rotation.y,
+          0,
+          6,
+          delta
+        );
+      }
+
+    } else if (gameState === 'finished') {
+      // Dialog is showing — hold perfectly still
+      bodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+
     } else if (gameState === 'menu') {
       // Keep player stationary at start
       bodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -203,17 +287,17 @@ export const Player: React.FC = () => {
         <group position={[0, 0.75, 0]}>
           {/* Main deck */}
           <mesh castShadow>
-            <boxGeometry args={[0.4, 0.05, 2.0]} />
+            <boxGeometry args={[BOARD_WIDTH, 0.05, 2.0]} />
             <meshStandardMaterial color="#38bdf8" />
           </mesh>
           {/* Front tip - half circle curving toward -Z */}
           <mesh castShadow position={[0, 0, -1.0]}>
-            <cylinderGeometry args={[0.2, 0.2, 0.05, 16, 1, false, Math.PI / 2, Math.PI]} />
+            <cylinderGeometry args={[BOARD_WIDTH / 2, BOARD_WIDTH / 2, 0.05, 16, 1, false, Math.PI / 2, Math.PI]} />
             <meshStandardMaterial color="#38bdf8" />
           </mesh>
           {/* Tail tip - half circle curving toward +Z */}
           <mesh castShadow position={[0, 0, 1.0]}>
-            <cylinderGeometry args={[0.2, 0.2, 0.05, 16, 1, false, -Math.PI / 2, Math.PI]} />
+            <cylinderGeometry args={[BOARD_WIDTH / 2, BOARD_WIDTH / 2, 0.05, 16, 1, false, -Math.PI / 2, Math.PI]} />
             <meshStandardMaterial color="#38bdf8" />
           </mesh>
         </group>

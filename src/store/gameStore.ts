@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type GameState = 'menu' | 'playing' | 'gameover';
+type GameState = 'menu' | 'playing' | 'gameover' | 'finishing' | 'finished';
 
 interface GameStore {
   gameState: GameState;
