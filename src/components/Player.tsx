@@ -12,6 +12,8 @@ export const Player: React.FC = () => {
   const bodyRef = useRef<RapierRigidBody>(null);
   const meshRef = useRef<THREE.Group>(null);
   const armsGroupRef = useRef<THREE.Group>(null);
+  const headRef = useRef<THREE.Group>(null);
+  const trailRef = useRef<THREE.Group>(null);
   const { camera, mouse } = useThree();
   const { gameState, setSpeed, setDistance, setGameState } = useGameStore();
 
@@ -26,16 +28,22 @@ export const Player: React.FC = () => {
   const finishTimer = useRef(0);
   const finishTargetYaw = useRef(-Math.PI / 2); // determined at crossing moment
 
+  // Stance tracking
+  const wasAirborne = useRef(false);
+  const stanceCenter = useRef(0); // 0 = regular (facing +X), ±π = switch (facing -X)
+
   useEffect(() => {
     const handleMouseMove = () => setMouseActive(true);
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Reset finish state when game restarts
+  // Reset finish + stance state when game restarts
   useEffect(() => {
     finishTriggered.current = false;
     finishTimer.current = 0;
+    wasAirborne.current = false;
+    stanceCenter.current = 0;
   }, [gameState]);
 
   useFrame((state, delta) => {
@@ -63,60 +71,105 @@ export const Player: React.FC = () => {
         return;
       }
 
-      let bankAngle = 0;
+      // Detect airborne: player is more than 1 unit above the expected slope surface
+      const floorY = pos.z * Math.tan(0.2);
+      const isAirborne = pos.y > floorY + 1.0;
 
-      if (mouseActive) {
-        bankAngle = mouse.x * Math.PI / 6;
+      if (isAirborne) {
+        // -----------------------------------------------------------------------
+        // Aerial: spin with mouse X, no steering impulse
+        // -----------------------------------------------------------------------
+        if (meshRef.current && mouseActive) {
+          // Additive spin — up to ~1.5 full rotations per second at full mouse deflection
+          meshRef.current.rotation.y -= mouse.x * Math.PI * 1.5 * delta;
+          // Slight body tilt matching spin direction for style
+          meshRef.current.rotation.z = THREE.MathUtils.damp(
+            meshRef.current.rotation.z, -mouse.x * 0.35, 4, delta
+          );
+        }
+        // Arms rise up during tricks
+        if (armsGroupRef.current) {
+          armsGroupRef.current.rotation.y = THREE.MathUtils.damp(
+            armsGroupRef.current.rotation.y, 0, 4, delta
+          );
+        }
+        // Only gravity — preserve horizontal momentum
+        bodyRef.current.applyImpulse({ x: 0, y: -10 * delta, z: 0 }, true);
+
       }
 
-      // Update the visual rotation first so we can use its yaw for physics
-      if (meshRef.current) {
-        meshRef.current.rotation.z = THREE.MathUtils.damp(meshRef.current.rotation.z, -bankAngle, 6, delta);
-        const turnRotation = mouse.x * 0.8;
-        meshRef.current.rotation.y = THREE.MathUtils.damp(meshRef.current.rotation.y, -turnRotation, 6, delta);
+      // Landing detection: runs every frame, fires only on the transition airborne→grounded
+      if (wasAirborne.current && !isAirborne && meshRef.current) {
+        const raw = meshRef.current.rotation.y;
+        // Normalise to [-π, π]
+        const norm = ((raw % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+        // If facing roughly toward -X, adopt switch stance
+        stanceCenter.current = Math.abs(norm) > Math.PI / 2
+          ? Math.sign(norm) * Math.PI
+          : 0;
+        // Snap rotation to normalised value so damp has no large jump to cross
+        meshRef.current.rotation.y = norm;
+      }
+      wasAirborne.current = isAirborne;
+
+      if (!isAirborne) {
+        // -----------------------------------------------------------------------
+        // Grounded: normal carve steering
+        // -----------------------------------------------------------------------
+        let bankAngle = 0;
+        if (mouseActive) {
+          bankAngle = mouse.x * Math.PI / 6;
+        }
+
+        // Update the visual rotation first so we can use its yaw for physics
+        if (meshRef.current) {
+          const leanSign = stanceCenter.current === 0 ? 1 : -1;
+          meshRef.current.rotation.z = THREE.MathUtils.damp(meshRef.current.rotation.z, leanSign * -bankAngle, 6, delta);
+          const turnRotation = mouse.x * 0.8;
+          // Steer around the current stance centre (0 = regular, ±π = switch)
+          meshRef.current.rotation.y = THREE.MathUtils.damp(meshRef.current.rotation.y, stanceCenter.current - turnRotation, 6, delta);
+        }
+
+        if (armsGroupRef.current) {
+          // Exaggerated twist for the arms to simulate balancing and carving effort
+          const armTwist = mouse.x * Math.PI / 3;
+          armsGroupRef.current.rotation.y = THREE.MathUtils.damp(armsGroupRef.current.rotation.y, -armTwist, 8, delta);
+        }
+
+        const yaw = meshRef.current ? meshRef.current.rotation.y : 0;
+
+        // Raw board axes from yaw
+        const rawFwdX = -Math.sin(yaw);
+        const rawFwdZ = -Math.cos(yaw);
+
+        // In switch stance rawFwdZ > 0 (uphill) — flip all direction vectors so
+        // both thrust AND carve grip always operate in the downhill frame.
+        const dirSign = rawFwdZ <= 0 ? 1 : -1;
+        const forwardX = dirSign * rawFwdX;
+        const forwardZ = dirSign * rawFwdZ;          // guaranteed <= 0 (downhill)
+        const rightX   = dirSign *  Math.cos(yaw);
+        const rightZ   = dirSign * -Math.sin(yaw);
+
+        // Lateral slip relative to the corrected board axes
+        const sideVelocity = vel.x * rightX + vel.z * rightZ;
+
+        const carveGrip = 6.0 * delta;
+        const thrust = 40 * delta;
+
+        bodyRef.current.applyImpulse({
+          x: forwardX * thrust - rightX * sideVelocity * carveGrip,
+          y: -10 * delta,
+          z: forwardZ * thrust - rightZ * sideVelocity * carveGrip
+        }, true);
       }
 
-      if (armsGroupRef.current) {
-        // Exaggerated twist for the arms to simulate balancing and carving effort
-        const armTwist = mouse.x * Math.PI / 3;
-        armsGroupRef.current.rotation.y = THREE.MathUtils.damp(armsGroupRef.current.rotation.y, -armTwist, 8, delta);
-      }
-
-      const yaw = meshRef.current ? meshRef.current.rotation.y : 0;
-
-      // Calculate the board's true local axes
-      const forwardX = -Math.sin(yaw);
-      const forwardZ = -Math.cos(yaw);
-
-      const rightX = Math.cos(yaw);
-      const rightZ = -Math.sin(yaw);
-
-      // Determine how fast the board is sliding sideways relative to its orientation
-      const sideVelocity = vel.x * rightX + vel.z * rightZ;
-
-      // Represents the friction of the snowboard edge cutting into the snow
-      // A lower value creates lots of slippery drift, a high value is instantly on-rails
-      const carveGrip = 6.0 * delta;
-
-      // Base engine forward push
-      const thrust = 40 * delta;
-
-      // Impulse incorporates thrust in the new forward direction, PLUS the momentum-stopping
-      // side grip logic that naturally pushes the board along the curve
-      bodyRef.current.applyImpulse({
-        x: forwardX * thrust - rightX * sideVelocity * carveGrip,
-        y: -10 * delta,
-        z: forwardZ * thrust - rightZ * sideVelocity * carveGrip
-      }, true);
-
-      // Speed limit
+      // Speed limit (always)
       const maxZVel = -60;
       if (vel.z < maxZVel) {
         bodyRef.current.setLinvel({ x: vel.x, y: vel.y, z: maxZVel }, true);
       }
 
       // Dynamic floor limit since the slope continues infinitely downward
-      const floorY = pos.z * Math.tan(0.2);
       if (pos.y < floorY - 20 || Math.abs(pos.x) > 100) {
         setGameState('gameover');
       }
@@ -196,6 +249,19 @@ export const Player: React.FC = () => {
     desiredPos.y -= speedRatio * 1.5;
     desiredPos.z += speedRatio * 2;
 
+    // Smoothly rotate the head to face downhill, staying on the same body side
+    if (headRef.current) {
+      const headTarget = stanceCenter.current === 0 ? 0 : -Math.PI;
+      headRef.current.rotation.y = THREE.MathUtils.damp(
+        headRef.current.rotation.y, headTarget, 3, delta
+      );
+    }
+
+    // Move trail emitter to whichever end of the board is trailing downhill
+    if (trailRef.current) {
+      trailRef.current.position.z = stanceCenter.current === 0 ? 1.25 : -1.25;
+    }
+
     cameraPosition.current.lerp(desiredPos, 5 * delta);
     camera.position.copy(cameraPosition.current);
 
@@ -256,30 +322,32 @@ export const Player: React.FC = () => {
             </group>
           </group>
 
-          {/* Head */}
-          <mesh position={[0, 2.5, 0]} castShadow>
-            <boxGeometry args={[0.6, 0.6, 0.6]} />
-            <meshStandardMaterial color="#ffe4c4" />
-          </mesh>
-
-          {/* Goggles - face forward (-X in body local = world -Z) */}
-          <mesh position={[-0.31, 2.5, 0]} castShadow>
-            <boxGeometry args={[0.2, 0.2, 0.61]} />
-            <meshStandardMaterial color="#1e3a8a" roughness={0.1} />
-          </mesh>
-
-          {/* Black Baseball Cap */}
-          <group position={[0, 2.8, 0]}>
-            {/* Cap dome */}
-            <mesh castShadow position={[0, 0.05, 0]}>
-              <boxGeometry args={[0.62, 0.2, 0.62]} />
-              <meshStandardMaterial color="#111111" roughness={0.9} />
+          {/* Head group — rotates to face downhill on stance switch */}
+          <group ref={headRef} position={[0, 2.5, 0]}>
+            <mesh castShadow>
+              <boxGeometry args={[0.6, 0.6, 0.6]} />
+              <meshStandardMaterial color="#ffe4c4" />
             </mesh>
-            {/* Cap brim - faces forward (-X in body local = world -Z) */}
-            <mesh castShadow position={[-0.35, -0.02, 0]}>
-              <boxGeometry args={[0.4, 0.05, 0.62]} />
-              <meshStandardMaterial color="#111111" roughness={0.9} />
+
+            {/* Goggles - face forward (-X in body local) */}
+            <mesh position={[-0.31, 0, 0]} castShadow>
+              <boxGeometry args={[0.2, 0.2, 0.61]} />
+              <meshStandardMaterial color="#1e3a8a" roughness={0.1} />
             </mesh>
+
+            {/* Black Baseball Cap */}
+            <group position={[0, 0.3, 0]}>
+              {/* Cap dome */}
+              <mesh castShadow position={[0, 0.05, 0]}>
+                <boxGeometry args={[0.62, 0.2, 0.62]} />
+                <meshStandardMaterial color="#111111" roughness={0.9} />
+              </mesh>
+              {/* Cap brim - faces forward (-X in body local) */}
+              <mesh castShadow position={[-0.35, -0.02, 0]}>
+                <boxGeometry args={[0.4, 0.05, 0.62]} />
+                <meshStandardMaterial color="#111111" roughness={0.9} />
+              </mesh>
+            </group>
           </group>
         </group>
 
@@ -304,8 +372,8 @@ export const Player: React.FC = () => {
 
         {/* The Trail Emitter (behind the board) */}
         <Trail width={4} length={12} color={'#b3e5fc'} attenuation={(t) => t * t}>
-          {/* Pos Z = 1.25 puts it right at the tail edge of the snowboard */}
-          <group position={[0, 0.75, 1.25]} />
+          {/* Trail emitter — position updated each frame to follow the trailing tip */}
+          <group ref={trailRef} position={[0, 0.75, 1.25]} />
         </Trail>
       </group>
     </RigidBody>
