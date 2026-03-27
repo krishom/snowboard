@@ -64,9 +64,11 @@ export const Player: React.FC = () => {
       // Trigger finish when player crosses the finish line
       if (dist >= FINISH_DISTANCE && !finishTriggered.current) {
         finishTriggered.current = true;
-        // Rotate toward whichever quarter-turn the board is already leaning into
+        // Rotate toward whichever quarter-turn the board is already leaning into,
+        // measured relative to stanceCenter so switch stance is handled correctly.
         const currentYaw = meshRef.current ? meshRef.current.rotation.y : 0;
-        finishTargetYaw.current = currentYaw >= 0 ? Math.PI / 2 : -Math.PI / 2;
+        const deviation = currentYaw - stanceCenter.current;
+        finishTargetYaw.current = stanceCenter.current + (deviation >= 0 ? Math.PI / 2 : -Math.PI / 2);
         setGameState('finishing'); // decelerate/rotate first — dialog comes later
         return;
       }
@@ -249,9 +251,12 @@ export const Player: React.FC = () => {
     desiredPos.y -= speedRatio * 1.5;
     desiredPos.z += speedRatio * 2;
 
-    // Smoothly rotate the head to face downhill, staying on the same body side
+    // Smoothly rotate the head to face downhill, staying on the same body side.
+    // While stopping, look 90° toward the chest (both stances land at −π/2 = +X world).
     if (headRef.current) {
-      const headTarget = stanceCenter.current === 0 ? 0 : -Math.PI;
+      const stanceBase = stanceCenter.current === 0 ? 0 : -Math.PI;
+      const isStopping = gameState === 'finishing' || gameState === 'finished';
+      const headTarget = isStopping ? -Math.PI / 2 : stanceBase;
       headRef.current.rotation.y = THREE.MathUtils.damp(
         headRef.current.rotation.y, headTarget, 3, delta
       );
