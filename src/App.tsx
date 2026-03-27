@@ -1,13 +1,14 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { UI } from './components/UI';
 import { useGameStore } from './store/gameStore';
 import { Environment } from './components/Environment';
 import { Player } from './components/Player';
+import { CoffeeBeans } from './components/CoffeeBeans';
 
 function App() {
-  const { gameState, runId } = useGameStore();
+  const { runId } = useGameStore();
 
   return (
     <div className="app-container">
@@ -21,6 +22,7 @@ function App() {
         <Suspense fallback={null}>
           <Physics key={runId}>
             <Environment />
+            <CoffeeBeans />
             <Player />
           </Physics>
         </Suspense>

@@ -264,7 +264,14 @@ export const Player: React.FC = () => {
 
     // Move trail emitter to whichever end of the board is trailing downhill
     if (trailRef.current) {
-      trailRef.current.position.z = stanceCenter.current === 0 ? 1.25 : -1.25;
+      const isFinishing = gameState === 'finishing' || gameState === 'finished';
+      const targetTrailZ = isFinishing ? 0 : (stanceCenter.current === 0 ? 1.25 : -1.25);
+      trailRef.current.position.z = THREE.MathUtils.damp(
+        trailRef.current.position.z,
+        targetTrailZ,
+        4,
+        delta
+      );
     }
 
     cameraPosition.current.lerp(desiredPos, 5 * delta);
