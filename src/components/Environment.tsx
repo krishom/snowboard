@@ -7,6 +7,7 @@ import { useGameStore } from '../store/gameStore';
 
 export const Environment: React.FC = () => {
   const treeRefs = useRef<THREE.Group[]>([]);
+  const dirLightRef = useRef<THREE.DirectionalLight>(null!);
 
   // Generate random trees
   const trees = useMemo(() => {
@@ -52,6 +53,14 @@ export const Environment: React.FC = () => {
     // Use the exact instantaneous gameStore distance to avoid the 1-frame camera lag on respawn
     const distance = useGameStore.getState().distance;
     const playerZ = -distance;
+    const playerY = playerZ * Math.tan(slopeAngle);
+
+    // Move the directional light to follow the player so its shadow frustum stays centred
+    if (dirLightRef.current) {
+      dirLightRef.current.position.set(20 + 0, playerY + 50, playerZ - 20);
+      dirLightRef.current.target.position.set(0, playerY, playerZ);
+      dirLightRef.current.target.updateMatrixWorld();
+    }
 
     treeRefs.current.forEach((tree) => {
       // If the tree is definitively behind the player (+20 units buffer)
@@ -72,8 +81,8 @@ export const Environment: React.FC = () => {
     <group>
       {/* Lighting and Scene Setup */}
       <ambientLight intensity={0.6} />
-      <directionalLight position={[20, 50, -20]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]}>
-        <orthographicCamera attach="shadow-camera" args={[-100, 100, 100, -100, 0.1, 200]} />
+      <directionalLight ref={dirLightRef} position={[20, 50, -20]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]}>
+        <orthographicCamera attach="shadow-camera" args={[-60, 60, 60, -60, 0.1, 300]} />
       </directionalLight>
 
       {/* The main Slope and Walls combined into one tilted RigidBody */}

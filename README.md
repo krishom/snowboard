@@ -1,4 +1,6 @@
-# React + TypeScript + Vite
+# TSE Snowboarding Extreme
+
+A recursively-named, mostly vibe-coded, 3D downhill adventure built with React, Three.js, and TypeScript.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

@@ -33,13 +33,13 @@ export const UI: React.FC = () => {
               TSE<br />Snowboarding<br />Extreme!
             </h1>
             <p className="menu-subtitle">
-              Steer with your mouse.<br />You reckon you're ready?
+              Steer with your mouse.<br />Do you reckon you're ready to snowboard?
             </p>
             <button
               className="btn-start"
               onClick={() => setGameState('playing')}
             >
-              Start Run
+              I'm ready!
             </button>
           </div>
         </div>
