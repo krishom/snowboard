@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "deploy": "npm run build && node -e \"fs.rmSync('docs',{recursive:true,force:true});fs.cpSync('dist','docs',{recursive:true})\"",
+    "deploy": "npm run build && node -e \"fs.rmSync('docs',{recursive:true,force:true});fs.cpSync('dist','docs',{recursive:true});let h=fs.readFileSync('docs/index.html','utf8');fs.writeFileSync('docs/index.html',h.replaceAll('href=\\\"/','href=\\\"./').replaceAll('src=\\\"/','src=\\\"./'))\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },
