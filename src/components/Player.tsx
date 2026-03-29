@@ -220,6 +220,15 @@ export const Player: React.FC = () => {
       }
       wasAirborne.current = isAirborne;
 
+      // Ensure speed limits are enforced BEFORE new impulses are added this frame
+      // so we don't accidentally overwrite the player's turning friction.
+      const currentSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+      const maxSpeed = 60;
+      if (currentSpeed > maxSpeed) {
+        const scale = maxSpeed / currentSpeed;
+        bodyRef.current.setLinvel({ x: vel.x * scale, y: vel.y, z: vel.z * scale }, true);
+      }
+
       if (!isAirborne) {
         // -----------------------------------------------------------------------
         // Grounded: normal carve steering
@@ -271,12 +280,6 @@ export const Player: React.FC = () => {
           y: -10 * delta,
           z: forwardZ * thrust - rightZ * sideVelocity * carveGrip
         }, true);
-      }
-
-      // Speed limit (always)
-      const maxZVel = -60;
-      if (vel.z < maxZVel) {
-        bodyRef.current.setLinvel({ x: vel.x, y: vel.y, z: maxZVel }, true);
       }
 
       // Dynamic floor limit since the slope continues infinitely downward
