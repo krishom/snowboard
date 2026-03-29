@@ -136,8 +136,9 @@ export const Environment: React.FC = () => {
     const arr = [];
     const minZ = -500;
     const maxZ = 50;
+    const numTrees = typeof window !== 'undefined' && window.innerWidth < 768 ? 100 : 200;
 
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < numTrees; i++) {
       // Place them at the inner face of the snow banks (banks centered at ±27, inner edge at ±25)
       const x = getTreeX();
       const z = Math.random() * (maxZ - minZ) + minZ;

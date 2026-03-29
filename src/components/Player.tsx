@@ -261,7 +261,9 @@ export const Player: React.FC = () => {
         // Lateral slip relative to the corrected board axes
         const sideVelocity = vel.x * rightX + vel.z * rightZ;
 
-        const carveGrip = 6.0 * delta;
+        // Use exponential decay based on mass to prevent integration overshoot at low mobile framerates
+        const mass = bodyRef.current.mass ? bodyRef.current.mass() : 1;
+        const carveGrip = mass * (1 - Math.exp(-6.0 * delta));
         const thrust = 40 * delta;
 
         bodyRef.current.applyImpulse({
@@ -296,7 +298,11 @@ export const Player: React.FC = () => {
         // Ease-in: starts near-zero, ramps up to full strength over ~4 s
         const t = Math.min(finishTimer.current / 4.0, 1.0);
         const easedT = t * t; // quadratic ease-in
-        const brakeStrength = easedT * 50 * delta;
+        
+        // Prevent integration overshoot at low frame rates using exact exponential decay formula
+        const mass = bodyRef.current.mass ? bodyRef.current.mass() : 1;
+        const brakeStrength = mass * (1 - Math.exp(-easedT * 50.0 * delta));
+        
         bodyRef.current.applyImpulse({
           x: -vel.x * brakeStrength,
           y: 0,
