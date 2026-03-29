@@ -6,7 +6,7 @@ import { useGameStore } from '../store/gameStore';
 import * as THREE from 'three';
 
 const BOARD_WIDTH = 0.55; // deck width in metres
-const FINISH_DISTANCE = 1000;
+const FINISH_DISTANCE = 3000;
 
 export const Player: React.FC = () => {
   const bodyRef = useRef<RapierRigidBody>(null);
@@ -183,9 +183,10 @@ export const Player: React.FC = () => {
             ? `${trickNames.join(" + ")} ${trickDeg}°!`
             : `${trickDeg}°!`;
             
-          useGameStore.getState().showTrickPopup(finalTrickName);
           const trickScore = Math.pow(halfSpins, 2) * 500 * multiplier;
+          useGameStore.getState().showTrickPopup(finalTrickName, trickScore);
           useGameStore.getState().addScore(trickScore);
+          useGameStore.getState().updateBestTrick(finalTrickName.replace('!', ''), trickScore);
         }
         airborneRotation.current = 0;
         grabDegreesNose.current = [];
@@ -262,6 +263,7 @@ export const Player: React.FC = () => {
 
       // Dynamic floor limit since the slope continues infinitely downward
       if (pos.y < floorY - 20 || Math.abs(pos.x) > 100) {
+        useGameStore.getState().checkHighScore();
         setGameState('gameover');
       }
 
@@ -288,6 +290,7 @@ export const Player: React.FC = () => {
         // Fully stopped — wait 1 extra second then show dialog
         bodyRef.current.setLinvel({ x: 0, y: vel.y, z: 0 }, true);
         if (finishTimer.current >= 1.0) {
+          useGameStore.getState().checkHighScore();
           setGameState('finished');
         }
       }

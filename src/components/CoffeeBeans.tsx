@@ -36,6 +36,7 @@ const Bean = ({ index }: { index: number }) => {
   
   const [collected, setCollected] = useState(false);
   const addScore = useGameStore((state) => state.addScore);
+  const incrementBeans = useGameStore((state) => state.incrementBeans);
   
   // Track continuous logical Z representation for continuous sine wave
   const logicalIndexRef = useRef(index);
@@ -64,7 +65,7 @@ const Bean = ({ index }: { index: number }) => {
         const newY = newZ * Math.tan(SLOPE_ANGLE) + 1.2;
         
         // Only reset state & teleport if we haven't crossed the finish line
-        if (newZ >= -1000) {
+        if (newZ >= -3000) {
           setCollected(false);
           bodyRef.current.setTranslation({ x: newX, y: newY, z: newZ }, true);
         } else {
@@ -96,6 +97,7 @@ const Bean = ({ index }: { index: number }) => {
           if (!collected) {
              setCollected(true);
              addScore(10);
+             incrementBeans();
           }
         }}
       />

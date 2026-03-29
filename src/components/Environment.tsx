@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 import { useGameStore } from '../store/gameStore';
 
-const FINISH_Z = -1000;
+const FINISH_Z = -3000;
 const SLOPE_ANGLE = 0.2;
 
 // ---------------------------------------------------------------------------
@@ -108,6 +108,20 @@ const JumpRamp: React.FC<{ z: number, x?: number }> = ({ z, x = 0 }) => {
       </group>
     </group>
   );
+};
+
+// ---------------------------------------------------------------------------
+// Jump Manager (Recycles jump down the track)
+// ---------------------------------------------------------------------------
+const JumpManager: React.FC = () => {
+  const currentJumpZ = useGameStore((state) => {
+    // Start jump at -500. After passing by 450m (distance 950), push jump to -1500, etc.
+    const jumpsPassed = Math.max(0, Math.floor((state.distance + 450) / 1000));
+    return -500 - jumpsPassed * 1000;
+  });
+
+  if (currentJumpZ <= FINISH_Z) return null;
+  return <JumpRamp key={currentJumpZ} z={currentJumpZ} />;
 };
 
 // ---------------------------------------------------------------------------
@@ -230,9 +244,9 @@ export const Environment: React.FC = () => {
       </group>
 
       {/* Jump Ramps */}
-      <JumpRamp z={-500} />
+      <JumpManager />
 
-      {/* Finish Line at 1000m */}
+      {/* Finish Line */}
       <FinishLine />
     </group>
   );
