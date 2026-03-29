@@ -13,6 +13,8 @@ export const Player: React.FC = () => {
   const meshRef = useRef<THREE.Group>(null);
   const armsGroupRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
+  const leftArmRef = useRef<THREE.Group>(null);
+  const rightArmRef = useRef<THREE.Group>(null);
   const trailRef = useRef<THREE.Group>(null);
   const { camera, mouse } = useThree();
   const { gameState, setSpeed, setDistance, setGameState } = useGameStore();
@@ -240,6 +242,27 @@ export const Player: React.FC = () => {
       bodyRef.current.setTranslation({ x: 0, y: 5, z: 0 }, true);
     }
 
+    // --- Post-Physics Animations & State Overrides ---
+    if (leftArmRef.current && rightArmRef.current) {
+      if (gameState === 'menu') {
+        leftArmRef.current.rotation.z = Math.PI / 4;
+        rightArmRef.current.rotation.z = -Math.PI / 4;
+      } else {
+        const isFinishing = gameState === 'finishing' || gameState === 'finished';
+        // -Math.PI / 2.5 is an outwardly raised V-shape for the left arm
+        // Math.PI / 4 is the normal slightly-down carrying pose
+        const targetLeftZ = isFinishing ? -Math.PI / 2.5 : Math.PI / 4;
+        const targetRightZ = isFinishing ? Math.PI / 2.5 : -Math.PI / 4;
+        
+        leftArmRef.current.rotation.z = THREE.MathUtils.damp(
+          leftArmRef.current.rotation.z, targetLeftZ, 4, delta
+        );
+        rightArmRef.current.rotation.z = THREE.MathUtils.damp(
+          rightArmRef.current.rotation.z, targetRightZ, 4, delta
+        );
+      }
+    }
+
     // --- Drone Camera Logic ---
     // Aims precisely at a spot exactly one player height (~2.5 units) above the head
     // Head is roughly at y + 2.5, so the target spot is y + 5.
@@ -302,7 +325,7 @@ export const Player: React.FC = () => {
           {/* Arms Group for twisting */}
           <group ref={armsGroupRef} position={[0, 1.8, 0]}>
             {/* Left Arm structure */}
-            <group position={[-0.3, 0, 0]} rotation={[0, 0, Math.PI / 4]}>
+            <group ref={leftArmRef} position={[-0.3, 0, 0]} rotation={[0, 0, Math.PI / 4]}>
               {/* Upper arm */}
               <mesh position={[-0.25, 0, 0]} castShadow>
                 <boxGeometry args={[0.5, 0.3, 0.3]} />
@@ -318,7 +341,7 @@ export const Player: React.FC = () => {
             </group>
 
             {/* Right Arm structure */}
-            <group position={[0.3, 0, 0]} rotation={[0, 0, -Math.PI / 4]}>
+            <group ref={rightArmRef} position={[0.3, 0, 0]} rotation={[0, 0, -Math.PI / 4]}>
               {/* Upper arm */}
               <mesh position={[0.25, 0, 0]} castShadow>
                 <boxGeometry args={[0.5, 0.3, 0.3]} />
