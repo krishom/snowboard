@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "deploy": "npm run build && node -e \"fs.rmSync('docs',{recursive:true,force:true});fs.cpSync('dist','docs',{recursive:true})\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },
