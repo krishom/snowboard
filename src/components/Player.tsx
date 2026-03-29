@@ -52,14 +52,30 @@ export const Player: React.FC = () => {
       if (e.button === 0) isNosegrabbing.current = false;
       if (e.button === 2) isTailgrabbing.current = false;
     };
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.targetTouches.length > 1) {
+        isNosegrabbing.current = true;
+      }
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.targetTouches.length <= 1) {
+        isNosegrabbing.current = false;
+      }
+    };
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchmove', handleMouseMove);
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchend', handleTouchEnd);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('contextmenu', handleContextMenu);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
