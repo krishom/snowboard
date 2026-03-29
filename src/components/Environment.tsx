@@ -73,6 +73,44 @@ const FinishLine: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
+// Jump Ramp
+// ---------------------------------------------------------------------------
+const JumpRamp: React.FC<{ z: number, x?: number }> = ({ z, x = 0 }) => {
+  const y = z * Math.tan(SLOPE_ANGLE);
+  return (
+    <group position={[x, y, z]} rotation={[-Math.PI / 2 - SLOPE_ANGLE, 0, 0]}>
+      {/* Rotate the RigidBody to form the ramp incline */}
+      <RigidBody
+        type="fixed"
+        colliders="cuboid"
+        friction={0.01}
+        restitution={0.1}
+        position={[0, 0, -1]}
+        rotation={[0.25, 0, 0]}
+      >
+        <mesh receiveShadow castShadow>
+          <boxGeometry args={[10.8, 24, 4]} />
+          {/* Slightly darker snow contour to be visible */}
+          <meshStandardMaterial color="#c2e0ff" roughness={0.8} />
+        </mesh>
+      </RigidBody>
+
+      {/* Flag poles - purely visual so no colliders */}
+      <group position={[0, 0, -1]} rotation={[0.25, 0, 0]}>
+        <mesh position={[-4.9, 11, 4]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.15, 0.15, 4]} />
+          <meshStandardMaterial color="#ff3333" />
+        </mesh>
+        <mesh position={[4.9, 11, 4]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.15, 0.15, 4]} />
+          <meshStandardMaterial color="#ff3333" />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Main Environment
 // ---------------------------------------------------------------------------
 export const Environment: React.FC = () => {
@@ -191,7 +229,10 @@ export const Environment: React.FC = () => {
         {trees}
       </group>
 
-      {/* Finish Line at 20000m */}
+      {/* Jump Ramps */}
+      <JumpRamp z={-500} />
+
+      {/* Finish Line at 1000m */}
       <FinishLine />
     </group>
   );

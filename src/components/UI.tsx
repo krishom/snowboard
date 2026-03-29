@@ -2,10 +2,17 @@ import React from 'react';
 import { useGameStore } from '../store/gameStore';
 
 export const UI: React.FC = () => {
-  const { gameState, score, speed, distance, setGameState, resetGame } = useGameStore();
+  const { gameState, score, speed, distance, trickPopup, setGameState, resetGame } = useGameStore();
 
   return (
     <div className="ui-layer">
+      {/* Trick Popup */}
+      {trickPopup && (
+        <div key={trickPopup.id} className="trick-popup">
+          {trickPopup.text}
+        </div>
+      )}
+
       {/* HUD - visible while playing or finishing */}
       {(gameState === 'playing' || gameState === 'finishing') && (
         <>

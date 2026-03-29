@@ -95,7 +95,7 @@ const Bean = ({ index }: { index: number }) => {
         onIntersectionEnter={() => {
           if (!collected) {
              setCollected(true);
-             addScore(100);
+             addScore(10);
           }
         }}
       />

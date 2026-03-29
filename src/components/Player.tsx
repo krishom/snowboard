@@ -14,7 +14,10 @@ export const Player: React.FC = () => {
   const armsGroupRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Group>(null);
+  const leftForearmRef = useRef<THREE.Group>(null);
   const rightArmRef = useRef<THREE.Group>(null);
+  const rightForearmRef = useRef<THREE.Group>(null);
+  const boardRef = useRef<THREE.Group>(null);
   const trailRef = useRef<THREE.Group>(null);
   const { camera, mouse } = useThree();
   const { gameState, setSpeed, setDistance, setGameState } = useGameStore();
@@ -33,11 +36,34 @@ export const Player: React.FC = () => {
   // Stance tracking
   const wasAirborne = useRef(false);
   const stanceCenter = useRef(0); // 0 = regular (facing +X), ±π = switch (facing -X)
+  const airborneRotation = useRef(0); // tracks accumulated rotation while airborne
+  const grabDegreesNose = useRef<number[]>([]);
+  const grabDegreesTail = useRef<number[]>([]);
+  const isNosegrabbing = useRef(false);
+  const isTailgrabbing = useRef(false);
 
   useEffect(() => {
     const handleMouseMove = () => setMouseActive(true);
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 0) isNosegrabbing.current = true;
+      if (e.button === 2) isTailgrabbing.current = true;
+    };
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 0) isNosegrabbing.current = false;
+      if (e.button === 2) isTailgrabbing.current = false;
+    };
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('contextmenu', handleContextMenu);
+    };
   }, []);
 
   // Reset finish + stance state when game restarts
@@ -46,6 +72,11 @@ export const Player: React.FC = () => {
     finishTimer.current = 0;
     wasAirborne.current = false;
     stanceCenter.current = 0;
+    airborneRotation.current = 0;
+    grabDegreesNose.current = [];
+    grabDegreesTail.current = [];
+    isNosegrabbing.current = false;
+    isTailgrabbing.current = false;
   }, [gameState]);
 
   useFrame((state, delta) => {
@@ -85,7 +116,23 @@ export const Player: React.FC = () => {
         // -----------------------------------------------------------------------
         if (meshRef.current && mouseActive) {
           // Additive spin — up to ~1.5 full rotations per second at full mouse deflection
-          meshRef.current.rotation.y -= mouse.x * Math.PI * 1.5 * delta;
+          const spinDelta = -mouse.x * Math.PI * 1.5 * delta;
+          
+          const prevTotalDeg = Math.abs(airborneRotation.current) * (180 / Math.PI);
+          meshRef.current.rotation.y += spinDelta;
+          airborneRotation.current += spinDelta;
+          const currentTotalDeg = Math.abs(airborneRotation.current) * (180 / Math.PI);
+          
+          const actualDelta = currentTotalDeg - prevTotalDeg;
+          if (actualDelta > 0) {
+            const currentChunk = Math.floor(prevTotalDeg / 180);
+            if (!grabDegreesNose.current[currentChunk]) grabDegreesNose.current[currentChunk] = 0;
+            if (!grabDegreesTail.current[currentChunk]) grabDegreesTail.current[currentChunk] = 0;
+            
+            if (isNosegrabbing.current) grabDegreesNose.current[currentChunk] += actualDelta;
+            if (isTailgrabbing.current) grabDegreesTail.current[currentChunk] += actualDelta;
+          }
+          
           // Slight body tilt matching spin direction for style
           meshRef.current.rotation.z = THREE.MathUtils.damp(
             meshRef.current.rotation.z, -mouse.x * 0.35, 4, delta
@@ -104,6 +151,46 @@ export const Player: React.FC = () => {
 
       // Landing detection: runs every frame, fires only on the transition airborne→grounded
       if (wasAirborne.current && !isAirborne && meshRef.current) {
+        
+        // Calculate trick if we rotated enough
+        const totalDeg = Math.abs(airborneRotation.current) * (180 / Math.PI);
+        const halfSpins = Math.floor(totalDeg / 180);
+        const trickDeg = halfSpins * 180;
+        
+        if (trickDeg >= 180) {
+          const trickNames: string[] = [];
+          
+          for (let i = 0; i < halfSpins; i++) {
+             const n = grabDegreesNose.current[i] || 0;
+             const t = grabDegreesTail.current[i] || 0;
+             let trickName = "";
+             if (n > t && n >= 90) {
+               trickName = "Nosegrab";
+             } else if (t > n && t >= 90) {
+               trickName = "Tailgrab";
+             }
+             if (trickName && (trickNames.length === 0 || trickNames[trickNames.length - 1] !== trickName)) {
+               trickNames.push(trickName);
+             }
+          }
+          
+          let multiplier = 1;
+          if (trickNames.length > 0) {
+            multiplier = Math.pow(2, trickNames.length);
+          }
+          
+          const finalTrickName = trickNames.length > 0 
+            ? `${trickNames.join(" + ")} ${trickDeg}°!`
+            : `${trickDeg}°!`;
+            
+          useGameStore.getState().showTrickPopup(finalTrickName);
+          const trickScore = Math.pow(halfSpins, 2) * 500 * multiplier;
+          useGameStore.getState().addScore(trickScore);
+        }
+        airborneRotation.current = 0;
+        grabDegreesNose.current = [];
+        grabDegreesTail.current = [];
+
         const raw = meshRef.current.rotation.y;
         // Normalise to [-π, π]
         const norm = ((raw % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
@@ -251,16 +338,61 @@ export const Player: React.FC = () => {
         const isFinishing = gameState === 'finishing' || gameState === 'finished';
         // -Math.PI / 2.5 is an outwardly raised V-shape for the left arm
         // Math.PI / 4 is the normal slightly-down carrying pose
-        const targetLeftZ = isFinishing ? -Math.PI / 2.5 : Math.PI / 4;
-        const targetRightZ = isFinishing ? Math.PI / 2.5 : -Math.PI / 4;
+        let targetLeftZ = isFinishing ? -Math.PI / 2.5 : Math.PI / 4;
+        let targetRightZ = isFinishing ? Math.PI / 2.5 : -Math.PI / 4;
         
+        const doNosegrab = gameState === 'playing' && wasAirborne.current && isNosegrabbing.current;
+        const doTailgrab = gameState === 'playing' && wasAirborne.current && isTailgrabbing.current;
+
+        if (doNosegrab) {
+          targetLeftZ = 0; // Rotate up so it's level to the ground
+        }
+        if (doTailgrab) {
+          targetRightZ = 0; // Rotate up so it's level to the ground
+        }
+
         leftArmRef.current.rotation.z = THREE.MathUtils.damp(
-          leftArmRef.current.rotation.z, targetLeftZ, 4, delta
+          leftArmRef.current.rotation.z, targetLeftZ, 8, delta
         );
         rightArmRef.current.rotation.z = THREE.MathUtils.damp(
-          rightArmRef.current.rotation.z, targetRightZ, 4, delta
+          rightArmRef.current.rotation.z, targetRightZ, 8, delta
         );
+
+        if (leftForearmRef.current) {
+          const targetForearmY = doNosegrab ? 0 : -Math.PI / 6;
+          const targetForearmZ = doNosegrab ? 0 : Math.PI / 12;
+
+          leftForearmRef.current.rotation.y = THREE.MathUtils.damp(
+            leftForearmRef.current.rotation.y, targetForearmY, 8, delta
+          );
+          leftForearmRef.current.rotation.z = THREE.MathUtils.damp(
+            leftForearmRef.current.rotation.z, targetForearmZ, 8, delta
+          );
+        }
+
+        if (rightForearmRef.current) {
+          const targetForearmY = doTailgrab ? 0 : Math.PI / 6;
+          const targetForearmZ = doTailgrab ? 0 : -Math.PI / 12;
+
+          rightForearmRef.current.rotation.y = THREE.MathUtils.damp(
+            rightForearmRef.current.rotation.y, targetForearmY, 8, delta
+          );
+          rightForearmRef.current.rotation.z = THREE.MathUtils.damp(
+            rightForearmRef.current.rotation.z, targetForearmZ, 8, delta
+          );
+        }
       }
+    }
+
+    if (boardRef.current) {
+      let targetBoardX = 0;
+      if (gameState === 'playing' && wasAirborne.current) {
+        if (isNosegrabbing.current) targetBoardX = Math.PI / 5;
+        else if (isTailgrabbing.current) targetBoardX = -Math.PI / 5;
+      }
+      boardRef.current.rotation.x = THREE.MathUtils.damp(
+        boardRef.current.rotation.x, targetBoardX, 8, delta
+      );
     }
 
     // --- Drone Camera Logic ---
@@ -332,7 +464,7 @@ export const Player: React.FC = () => {
                 <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
               </mesh>
               {/* Forearm angled forward and slightly down */}
-              <group position={[-0.35, 0, 0]} rotation={[0, -Math.PI / 6, Math.PI / 12]}>
+              <group ref={leftForearmRef} position={[-0.35, 0, 0]} rotation={[0, -Math.PI / 6, Math.PI / 12]}>
                 <mesh position={[-0.25, 0, 0]} castShadow>
                   <boxGeometry args={[0.5, 0.3, 0.3]} />
                   <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
@@ -348,7 +480,7 @@ export const Player: React.FC = () => {
                 <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
               </mesh>
               {/* Forearm angled forward and slightly down */}
-              <group position={[0.35, 0, 0]} rotation={[0, Math.PI / 6, -Math.PI / 12]}>
+              <group ref={rightForearmRef} position={[0.35, 0, 0]} rotation={[0, Math.PI / 6, -Math.PI / 12]}>
                 <mesh position={[0.25, 0, 0]} castShadow>
                   <boxGeometry args={[0.5, 0.3, 0.3]} />
                   <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
@@ -387,7 +519,7 @@ export const Player: React.FC = () => {
         </group>
 
         {/* The Snowboard with rounded tips */}
-        <group position={[0, 0.75, 0]}>
+        <group ref={boardRef} position={[0, 0.75, 0]}>
           {/* Main deck */}
           <mesh castShadow>
             <boxGeometry args={[BOARD_WIDTH, 0.05, 2.0]} />

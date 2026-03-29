@@ -360,3 +360,32 @@ body {
 .btn-main-menu:active {
   transform: scale(0.95);
 }
+
+/* ============================================================
+   Trick Popup
+   ============================================================ */
+
+@keyframes trick-popup-anim {
+  0% { opacity: 0; transform: translate(-50%, 20px) scale(0.8); }
+  20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  30% { transform: translate(-50%, 0) scale(1.05); }
+  80% { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -20px) scale(0.9); }
+}
+
+.trick-popup {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  pointer-events: none;
+  font-size: 3rem;
+  width: 90vw;
+  text-align: center;
+  font-weight: 900;
+  font-style: italic;
+  color: #fbbf24;
+  text-shadow: 0 4px 6px rgba(0,0,0,0.5), 0 0 20px rgba(251,191,36,0.6);
+  animation: trick-popup-anim 1.5s ease-out forwards;
+  z-index: 50;
+}
