@@ -72,7 +72,8 @@ export const UI: React.FC = () => {
             <p className="menu-subtitle">
               Steer with your mouse.<br />
               Collect golden coffee beans.<br />
-              Do tricks in the air.<br />
+              Do tricks by turning in the air.<br />
+              Hold left or right mouse (or hold down two fingers) to grab.<br />
               <br />
               Do you reckon you're ready to snowboard?
             </p>
